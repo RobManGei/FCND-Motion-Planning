@@ -1,88 +1,156 @@
-# FCND - 3D Motion Planning
-![Quad Image](./misc/enroute.png)
+Required Steps for a Passing Submission:
+1. Load the 2.5D map in the colliders.csv file describing the environment.
+2. Discretize the environment into a grid or graph representation.
+3. Define the start and goal locations.
+4. Perform a search using A* or other search algorithm.
+5. Use a collinearity test or ray tracing method (like Bresenham) to remove unnecessary waypoints.
+6. Return waypoints in local ECEF coordinates (format for `self.all_waypoints` is [N, E, altitude,
+heading], where the drone’s start location corresponds to [0, 0, 0, 0].
+7. Write it up.
+8. Congratulations! Your Done!
 
+Here I will consider the rubric points individually and describe how I addressed each point in my
+implementation.
 
+Writeup / README
+1. Provide a Writeup / README that includes all the rubric points and how you addressed each one.
+You can submit your writeup as markdown or pdf.
+You're reading it! Below I describe how I addressed each rubric point and where in my code each
+point is handled.
 
-This project is a continuation of the Backyard Flyer project where you executed a simple square shaped flight path. In this project you will integrate the techniques that you have learned throughout the last several lessons to plan a path through an urban environment. Check out the [project rubric](https://review.udacity.com/#!/rubrics/1534/view) for more detail on what constitutes a passing submission.
+Explain the Starter Code
+1. Explain the functionality of what's provided in `motion_planning.py` and `planning_utils.py`
 
-## Option to do this project in a GPU backed virtual machine in the Udacity classroom!
-Rather than downloading the simulator and starter files you can simply complete this project in a virual workspace in the Udacity classroom! Follow [these instructions](https://classroom.udacity.com/nanodegrees/nd787/parts/5aa0a956-4418-4a41-846f-cb7ea63349b3/modules/0c12632a-b59a-41c1-9694-2b3508f47ce7/lessons/5f628104-5857-4a3f-93f0-d8a53fe6a8fd/concepts/ab09b378-f85f-49f4-8845-d59025dd8a8e?contentVersion=1.0.0&contentLocale=en-us) to proceed with the VM. 
+These scripts contain a basic planning implementation that is invoked in the “plan_path” function. It
+contains the definition of a safety distance to obstacles and a target altitude. Based on that, the data
+from colliders.csv is read and a grid is created that contains the obstacles. The starting point in the
+grid is set to the initial position of the simulator (with is inside a building which causes some
+problems). The goal is set to a position 10m northeast from the start.
+After that an implementation of an A* algorithm is invoked that calculated a path from start to goal
+based on movements up/down or left/right. The heuristic used for this A* implementation is the
+Euclidian distance between the current point and the goal.
 
-## To complete this project on your local machine, follow these instructions:
-### Step 1: Download the Simulator
-This is a new simulator environment!  
+Implementing Your Path Planning Algorithm
 
-Download the Motion-Planning simulator for this project that's appropriate for your operating system from the [simulator releases respository](https://github.com/udacity/FCND-Simulator-Releases/releases).
+I implemented my solution in the file motion_planning_sol_rg_outside.py and extended the file
+planning_utils.py I used a combination of a grid based A* and a graph based A* with a probabilistic
+roadmap.
 
-### Step 2: Set up your Python Environment
-If you haven't already, set up your Python environment and get all the relevant packages installed using Anaconda following instructions in [this repository](https://github.com/udacity/FCND-Term1-Starter-Kit)
+1. Set your global home positionHere students should read the first line of the csv file, extract lat0 and lon0 as floating point values and use the self.set_home_position() method to set global home. Explain briefly how you accomplished this in your code.
 
-### Step 3: Clone this Repository
-```sh
-git clone https://github.com/udacity/FCND-Motion-Planning
-```
-### Step 4: Test setup
-The first task in this project is to test the [solution code](https://github.com/udacity/FCND-Motion-Planning/blob/master/backyard_flyer_solution.py) for the Backyard Flyer project in this new simulator. Verify that your Backyard Flyer solution code works as expected and your drone can perform the square flight path in the new simulator. To do this, start the simulator and run the [`backyard_flyer_solution.py`](https://github.com/udacity/FCND-Motion-Planning/blob/master/backyard_flyer_solution.py) script.
+I did this is lines 130 – 137. I opened the file and read the first line with f.readline(). Afterwards I used
+the “split” method to separate the values from each other and the text. Then, I converted the string
+into float with float().
 
-```sh
-source activate fcnd # if you haven't already sourced your Python environment, do so now.
-python backyard_flyer_solution.py
-```
-The quad should take off, fly a square pattern and land, just as in the previous project. If everything functions as expected then you are ready to start work on this project. 
+Figure 1: Code used
 
-### Step 5: Inspect the relevant files
-For this project, you are provided with two scripts, `motion_planning.py` and `planning_utils.py`. Here you'll also find a file called `colliders.csv`, which contains the 2.5D map of the simulator environment. 
+Then I used the values to set the home position with “self.set_home_position(lon, lat, 0.0)” in line
+142. Interestingly, if you print global home afterwards, it will not show the updated global home until
+the function plan_path is complete.
 
-### Step 6: Explain what's going on in  `motion_planning.py` and `planning_utils.py`
+2. Set your current local position
+Here as long as you successfully determine your local position relative to global home you'll be all set.
+Explain briefly how you accomplished this in your code.
 
-`motion_planning.py` is basically a modified version of `backyard_flyer.py` that leverages some extra functions in `planning_utils.py`. It should work right out of the box.  Try running `motion_planning.py` to see what it does. To do this, first start up the simulator, then at the command line:
- 
-```sh
-source activate fcnd # if you haven't already sourced your Python environment, do so now.
-python motion_planning.py
-```
+In order to do this, I retrieved the current global position with “global_pos_current =
+[self.global_position[0], self.global_position[1], self.global_position[2]]” and converted it to the
+current local position with “local_pos_current = global_to_local(global_pos_current,
+self.global_home)”.
 
-You should see the quad fly a jerky path of waypoints to the northeast for about 10 m then land.  What's going on here? Your first task in this project is to explain what's different about `motion_planning.py` from the `backyard_flyer_solution.py` script, and how the functions provided in `planning_utils.py` work. 
+3. Set grid start position from local position
+This is another step in adding flexibility to the start location. As long as it works you're good to go!
 
-### Step 7: Write your planner
+I did this in line 164 with “grid_start = (int(np.around(self.local_position[0]))-north_offset,
+int(np.around(self.local_position[1]))-east_offset)”. In order to workj with the grid, the position
+needs to be an integer value. That is why I rounded the current local position to the nearest integer
+value.
 
-Your planning algorithm is going to look something like the following:
+4. Set grid goal position from geodetic coordsThis step is to add flexibility to the desired goal location. Should be able to choose any (lat, lon) within
+the map and have it rendered to a goal location on the grid.
 
-- Load the 2.5D map in the `colliders.csv` file describing the environment.
-- Discretize the environment into a grid or graph representation.
-- Define the start and goal locations. You can determine your home location from `self._latitude` and `self._longitude`. 
-- Perform a search using A* or other search algorithm. 
-- Use a collinearity test or ray tracing method (like Bresenham) to remove unnecessary waypoints.
-- Return waypoints in local ECEF coordinates (format for `self.all_waypoints` is [N, E, altitude, heading], where the drone’s start location corresponds to [0, 0, 0, 0]). 
+I realized this twofold. In the current implementation, the user is prompted to enter lon/lat values
+for the goal. The entered values are being assessed if they are allowable float values that lie on the
+grid. On the one hand, I used a function “check_string_to_float” to check if the entered string is a
+float value. On the other hand, I converted the entered position to local coordinated and checked if
+they lie on the grid in line 202. Additionally, the location is checked for obstacles. In order to do this, I
+created a second grid with an altitude of “0” and the safety distance defined. That grid is used to
+check if the entered position in in an obstacle. If the entered goal location is valid, the goal location is
+set. If not, the user is prompted again. This part can be commented out and a goal location can
+manually be set in line 219.
 
-Some of these steps are already implemented for you and some you need to modify or implement yourself.  See the [rubric](https://review.udacity.com/#!/rubrics/1534/view) for specifics on what you need to modify or implement.
+Figure 2: Rejected goal location
 
-### Step 8: Write it up!
-When you're finished, complete a detailed writeup of your solution and discuss how you addressed each step. You can use the [`writeup_template.md`](./writeup_template.md) provided here or choose a different format, just be sure to describe clearly the steps you took and code you used to address each point in the [rubric](https://review.udacity.com/#!/rubrics/1534/view). And have fun!
+5. Modify A* to include diagonal motion (or replace A* altogether)
+Minimal requirement here is to modify the code in planning_utils() to update the A* implementation
+to include diagonal motions on the grid that have a cost of sqrt(2), but more creative solutions are
+welcome. Explain the code you used to accomplish this step.
 
-## Extra Challenges
-The submission requirements for this project are laid out in the rubric, but if you feel inspired to take your project above and beyond, or maybe even keep working on it after you submit, then here are some suggestions for interesting things to try.
+I accomplished that in the planning_utils.py file in lines 112 – 116. I extended the “Action” class with
+the possible actions northwest, northeast, southwest and southeast. The actions are carried out in
+the grid with two movements, one in the north/south direction and one in the east/west direction.
+These four movements have a cost of sqrt(2).
 
-### Try flying more complex trajectories
-In this project, things are set up nicely to fly right-angled trajectories, where you ascend to a particular altitude, fly a path at that fixed altitude, then land vertically. However, you have the capability to send 3D waypoints and in principle you could fly any trajectory you like. Rather than simply setting a target altitude, try sending altitude with each waypoint and set your goal location on top of a building!
+Figure 3: Diagonal movements
 
-### Adjust your deadbands
-Adjust the size of the deadbands around your waypoints, and even try making deadbands a function of velocity. To do this, you can simply modify the logic in the `local_position_callback()` function.
+Furthermore, I implemented the function “a_star_graph” in the file planning_utils.py to be able to
+use a NetworkX graph to find a path with A*. The heuristic as well as the costs are implemented as
+Euclidian distances. In order to use A* on a graph, I had to create a graph first.
+I did this in my motion planning file. I put the code for it in the “main” function as it runs a lot faster
+there, before making the connection to the simulator. My graph is based on a probabilistic roadmap.
+In lines 412 – 415, the variable values of drone altitude, safety distance as well as the number of
+samples for the random graph and the number of neighbors for the possible edges can be set. I used250 samples and 10 neighbors with an altitude of 25m and a safety distance of 7m. The figure below
+shows two different graphs with different altitudes (left 20m, right 90m). The green dots show
+samples that were rejected as they were within obstacles.
 
-### Add heading commands to your waypoints
-This is a recent update! Make sure you have the [latest version of the simulator](https://github.com/udacity/FCND-Simulator-Releases/releases). In the default setup, you're sending waypoints made up of NED position and heading with heading set to 0 in the default setup. Try passing a unique heading with each waypoint. If, for example, you want to send a heading to point to the next waypoint, it might look like this:
+Figure 4: Random graphs with different altitudes
 
-```python
-# Define two waypoints with heading = 0 for both
-wp1 = [n1, e1, a1, 0]
-wp2 = [n2, e2, a2, 0]
-# Set heading of wp2 based on relative position to wp1
-wp2[3] = np.arctan2((wp2[1]-wp1[1]), (wp2[0]-wp1[0]))
-```
+In order to crate the graph, I created random samples based on the size of the grid (lines 434 – 438). I
+used the drone altitude for the z values in order to reduce complexity and use the 2.5D
+representation. Therefore, changes in altitude during the flight are not envisaged.
+Based on the samples, I check each point if it is within an obstacle with the “collides” function
+implemented in planning_utils.py. The obstacle polygons were created when creating the grid with
+the shapely package. Each point is checked against all polygons with the “contains” function. I did not
+use a tree search here in order to check all polygons.
 
-This may not be completely intuitive, but this will yield a yaw angle that is positive counterclockwise about a z-axis (down) axis that points downward.
+Afterwards, I used the create_graph function in my planning_utils.py file to create a NetworkX graph.
+Based on the number of neighbors set above, it tries to connect the nodes with the can_connect
+function. Within that function a line string is crated between two nodes and it is checked if it crosses
+a polygon. If not, it is a valid edge. Afterwards I create a search tree in line 454 with the nodes of the
+graph.
 
-Put all of these together and make up your own crazy paths to fly! Can you fly a double helix?? 
-![Double Helix](./misc/double_helix.gif)
+With all that, the path is planned in the following way: With the help of the search tree, the closest
+node in the graph is selected with “distStart, indexStart = mytree.query(pointStart)”. The problem is
+that the graph is random and we cannot know how far the actual starting point is away from the
+closest point of the graph and if obstacles are in between. Therefore, I am using the grid based A* to
+get from the starting location to the closest point on the graph. From there I use the graph based A*
+to get to the goal. To get there, I again use the search tree to get the closest node from the goal
+location. However, I cannot know if the closest point on the graph is connected to the start location
+of the graph. Therefore, I use the search tree to get the 3 nearest neighbors “distGoal, indexGoal =
+mytree.query(pointGoal, 3)”. Of course this number can be changed. I then try to find a path with A*
+to the closest neighbor. If that fails, I use the second closest and so on. If all that should fail, I use the
+grid based A* all the way. Again. The drone has to move from the closest connected node to the goal
+again and for that part I use the grid based A* again.Figure 5: Output of the search
+The figure above shows how the search with the closest neighbor to the goal fails but the second
+closest is connected to the start location.
 
-Ok flying a double helix might seem like a silly idea, but imagine you are an autonomous first responder vehicle. You need to first fly to a particular building or location, then fly a reconnaissance pattern to survey the scene! Give it a try!
+6. Cull waypoints
+
+For this step you can use a collinearity test or ray tracing method like Bresenham. The idea is simply
+to prune your path of unnecessary waypoints. Explain the code you used to accomplish this step.
+
+After the partial paths are connected, the waypoints are pruned with the prune_path function that
+checks of three points on the path a collinear with the determinant method. From that path, the
+waypoints are created and sent to the simulator. In order to display the path in the sim, I had to
+round the graph points to integer values. Otherwise the simulator got stuck.
+Execute the flight
+
+1. Does it work?
+
+It works! The only problem is that the initial position of the simulator is within a building that should
+not be there. So the drone collides during the start. I can be manually flown out with a collision, and
+afterwards it works. Due to the random nature of the graph, the paths can be a detour compared to
+grid based A*. But for longer paths, the computation time reduces significantly with the use of the
+graph. The figures below show an example flight.
+
+Figure 6: Drone start location
+Figure 7: Execution of the flight with pathFigure 8: Arrival at goal location with transition from graph to grid
