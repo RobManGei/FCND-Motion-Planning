@@ -33,7 +33,7 @@ Euclidian distance between the current point and the goal.
 Implementing Your Path Planning Algorithm
 
 I implemented my solution in the file motion_planning_sol_rg_outside.py and extended the file
-planning_utils.py I used a combination of a grid based A* and a graph based A* with a probabilistic
+planning_utils.py. I used a combination of a grid based A* and a graph based A* with a probabilistic
 roadmap.
 
 1. Set your global home positionHere students should read the first line of the csv file, extract lat0 and lon0 as floating point values and use the self.set_home_position() method to set global home. Explain briefly how you accomplished this in your code.
