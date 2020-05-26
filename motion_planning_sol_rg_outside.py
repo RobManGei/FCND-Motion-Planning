@@ -135,10 +135,9 @@ class MotionPlanning(Drone):
         startPosLonSplit = startPosFromFileSplit[1].split()
         lat = float(startPosLatSplit[1])
         lon = float(startPosLonSplit[1])
-        #print(lat, lon)
         
         # TODO: set home position to (lon0, lat0, 0)
-        # Done here. But this statement is not visible until getting out of the function when home location is updated
+        # Done here. But this statement is not visible (i.e print home_position will give different result) until getting out of the function when home location is updated
         self.set_home_position(lon, lat, 0.0)
 
         # TODO: retrieve current global position
